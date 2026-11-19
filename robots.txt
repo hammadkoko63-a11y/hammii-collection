@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://hammadkoko63-a11y.github.io/hammii-collection/sitemap.xml
