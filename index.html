@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Hammii Collection</title>
-<meta name="description" content="Hammii Collection. Add products to stock and take orders through Instagram.">
+<meta name="description" content="Shop Hammii Collection online. Choose an item, add delivery details, and send your order through Instagram.">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="https://hammadkoko63-a11y.github.io/hammii-collection/">
 <meta property="og:title" content="Hammii Collection">
-<meta property="og:description" content="Discover Hammii Collection and order through Instagram.">
+<meta property="og:description" content="Choose your Hammii Collection item and prepare your order online.">
 <meta property="og:url" content="https://hammadkoko63-a11y.github.io/hammii-collection/">
 <style>
 :root{--bg:#faf7f2;--surface:#fff;--text:#1f1b16;--muted:#6b6358;--accent:#a8742f;--line:#e6dfd3;
@@ -65,6 +65,20 @@ footer{text-align:center;padding:28px;font-family:system-ui,sans-serif;font-size
 .order-qr{width:128px;height:auto;background:#fff;padding:6px;border:1px solid var(--line)}
 .location-link{display:inline-block;margin:8px}
 .empty-stock{color:var(--muted);padding:18px 0}
+.order-dialog{width:min(600px,calc(100vw - 24px));max-height:90vh;overflow:auto;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:24px}
+.order-dialog::backdrop{background:rgba(20,18,14,.62)}
+.order-dialog h2{text-align:left;margin:0;font-size:1.75rem}
+.order-product{padding:14px 0;border-bottom:1px solid var(--line);font-family:system-ui,sans-serif}
+.order-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:13px;margin:18px 0}
+.order-grid label{display:block;color:var(--muted);font: .82rem system-ui,sans-serif}
+.order-grid input,.order-grid textarea{display:block;width:100%;margin-top:5px;padding:10px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--text);font:inherit}
+.order-grid .full{grid-column:1/-1}
+.order-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.order-message{width:100%;min-height:180px;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--text);font: .9rem/1.5 system-ui,sans-serif}
+.order-hint{color:var(--muted);font: .82rem/1.5 system-ui,sans-serif}
+.dialog-close{float:right;border:0;background:transparent;color:var(--text);font-size:1.6rem;cursor:pointer}
+.product-status.sold{color:#a5362b}
+.stock-action{display:inline-block;margin-top:10px;text-decoration:none}
 </style>
 </head>
 <body>
@@ -136,6 +150,31 @@ footer{text-align:center;padding:28px;font-family:system-ui,sans-serif;font-size
 </main>
 
 <footer>© 2026 Hammii Collection. All rights reserved.</footer>
+<dialog class="order-dialog" id="orderDialog" aria-labelledby="orderTitle">
+  <button class="dialog-close" id="closeOrder" type="button" aria-label="Close order form">×</button>
+  <h2 id="orderTitle">Place your order</h2>
+  <p class="order-hint">Fill in your delivery details. They are used only to prepare your message and are not saved or sent by this site. Review the order, then send it to us on Instagram to confirm.</p>
+  <p id="orderProduct" class="order-product"></p>
+  <form id="orderForm">
+    <div class="order-grid">
+      <label for="orderName">Your name<input id="orderName" name="name" autocomplete="name" required maxlength="100"></label>
+      <label for="orderPhone">Phone number<input id="orderPhone" name="phone" type="tel" autocomplete="tel" required maxlength="25"></label>
+      <label for="orderQuantity">Quantity<input id="orderQuantity" name="quantity" type="number" min="1" step="1" required></label>
+      <label class="full" for="orderAddress">Delivery address<input id="orderAddress" name="address" autocomplete="street-address" required maxlength="250"></label>
+      <label class="full" for="orderNotes">Size or order notes (optional)<textarea id="orderNotes" name="notes" rows="2" maxlength="300"></textarea></label>
+    </div>
+    <button class="btn" type="submit">Prepare Instagram order</button>
+  </form>
+  <div id="orderReady" hidden>
+    <p class="order-hint">Your order is not submitted until you send this message to <strong>@hammad_khan_yousafzai36</strong> on Instagram. Your details are not saved by this site.</p>
+    <textarea id="orderMessage" class="order-message" readonly aria-label="Order details to send"></textarea>
+    <div class="order-actions">
+      <button class="btn" id="copyOrder" type="button">Copy order details</button>
+      <a class="btn" href="https://ig.me/m/hammad_khan_yousafzai36" target="_blank" rel="noopener">Open Instagram to send</a>
+    </div>
+    <p id="orderStatus" class="status" role="status" aria-live="polite"></p>
+  </div>
+</dialog>
 <script>
 (() => {
   const key = "hk-collection-stock-v2";
@@ -145,6 +184,8 @@ footer{text-align:center;padding:28px;font-family:system-ui,sans-serif;font-size
   const productsGrid = document.querySelector("#productGrid");
   const stockRows = document.querySelector("#stockRows");
   const empty = document.querySelector("#productsEmpty");
+  const orderDialog = document.querySelector("#orderDialog");
+  let orderItem = null;
   let items = [];
 
   function escapeHtml(value) {
@@ -179,7 +220,7 @@ footer{text-align:center;padding:28px;font-family:system-ui,sans-serif;font-size
         <h3>${escapeHtml(item.name)}</h3>
         <p>${escapeHtml(item.category)} · Rs ${item.price.toLocaleString("en-PK")}</p>
         <p class="product-status">${item.quantity > 0 ? `${item.quantity} in stock` : "Sold out"}</p>
-        <a class="btn" href="https://www.instagram.com/hammad_khan_yousafzai36/" target="_blank" rel="noopener">Order on Instagram</a>
+        <button class="btn stock-action" type="button" data-order="${escapeHtml(item.id)}" ${item.quantity === 0 ? "disabled" : ""}>${item.quantity === 0 ? "Sold out" : "Order this item"}</button>
       </div></article>
     `).join("");
     empty.hidden = items.length > 0;
@@ -235,6 +276,73 @@ footer{text-align:center;padding:28px;font-family:system-ui,sans-serif;font-size
     items = next;
     status.textContent = "Stock item removed.";
     render();
+  });
+
+  productsGrid.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-order]");
+    if (!button) return;
+    orderItem = items.find((item) => item.id === button.dataset.order);
+    if (!orderItem || orderItem.quantity < 1) return;
+    document.querySelector("#orderProduct").textContent =
+      `${orderItem.name} · ${orderItem.category} · Rs ${orderItem.price.toLocaleString("en-PK")} · ${orderItem.quantity} available`;
+    const quantity = document.querySelector("#orderQuantity");
+    quantity.value = "1";
+    quantity.max = String(orderItem.quantity);
+    document.querySelector("#orderForm").hidden = false;
+    document.querySelector("#orderReady").hidden = true;
+    document.querySelector("#orderStatus").textContent = "";
+    orderDialog.showModal();
+  });
+
+  document.querySelector("#closeOrder").addEventListener("click", () => orderDialog.close());
+
+  document.querySelector("#orderForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!orderItem) return;
+    const formData = new FormData(event.currentTarget);
+    const quantity = Number(formData.get("quantity"));
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > orderItem.quantity) {
+      document.querySelector("#orderStatus").textContent = "Enter a whole quantity within the available stock.";
+      return;
+    }
+    const phone = String(formData.get("phone")).trim();
+    if (!/^[+0-9][0-9()\s-]{7,24}$/.test(phone)) {
+      document.querySelector("#orderStatus").textContent = "Enter a valid phone number so we can confirm your order.";
+      document.querySelector("#orderPhone").focus();
+      return;
+    }
+    const total = quantity * orderItem.price;
+    document.querySelector("#orderMessage").value = [
+      "Hello Hammii Collection, I would like to place an order:",
+      "",
+      `Product: ${orderItem.name}`,
+      `Category: ${orderItem.category}`,
+      `Quantity: ${quantity}`,
+      `Unit price: Rs ${orderItem.price.toLocaleString("en-PK")}`,
+      `Subtotal: Rs ${total.toLocaleString("en-PK")}`,
+      `Name: ${String(formData.get("name")).trim()}`,
+      `Phone: ${phone}`,
+      `Delivery address: ${String(formData.get("address")).trim()}`,
+      `Size / notes: ${String(formData.get("notes")).trim() || "None"}`,
+      "",
+      "Please confirm availability, delivery charges, and payment details."
+    ].join("\n");
+    document.querySelector("#orderForm").hidden = true;
+    document.querySelector("#orderReady").hidden = false;
+  });
+
+  document.querySelector("#copyOrder").addEventListener("click", async () => {
+    const message = document.querySelector("#orderMessage");
+    const orderStatus = document.querySelector("#orderStatus");
+    try {
+      await navigator.clipboard.writeText(message.value);
+      orderStatus.textContent = "Order copied. Open Instagram and paste it into your message.";
+    } catch (error) {
+      console.error("Could not copy order:", error);
+      message.focus();
+      message.select();
+      orderStatus.textContent = "Select and copy the order details, then paste them into Instagram.";
+    }
   });
 
   items = load();
