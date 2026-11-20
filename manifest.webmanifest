@@ -1,0 +1,16 @@
+{
+  "name": "Hammii Collection",
+  "short_name": "Hammii",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#faf7f2",
+  "theme_color": "#a8742f",
+  "icons": [
+    {
+      "src": "./website-order-qr.png",
+      "sizes": "600x600",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
